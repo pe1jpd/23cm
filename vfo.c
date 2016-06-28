@@ -1,5 +1,6 @@
 /*
- * loop when in VFO-mode 
+ * Handle the loops in which the program can sit: 
+ * vfo, memory, menu and memoryMenu.
  */
 #include <avr/io.h>
 #include <stdio.h>
