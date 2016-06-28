@@ -324,26 +324,26 @@ void scanMemory()
 }
 
 struct MenuStruct {
-    char *name;
+	char *name;
 	void (* get)();
 	void (* set)();
 };
 
 #define MAXMENU 3
 struct MenuStruct mainMenu[] = {
-    { "Squelch ", &getSquelch, &setSquelch},
-    { "Shift   ", &getShift, &setShift},
-    { "CTCSS   ", &getCTCSS, &setCTCSS},
+	{ "Squelch ", &getSquelch, &setSquelch},
+	{ "Shift   ", &getShift, &setShift},
+	{ "CTCSS   ", &getCTCSS, &setCTCSS},
 	{ "Store   ", &getMemory, &setMemory},
 //	{ "Spectrum scan ", 0, &Spectrum},
 };
 
 #define MAXMEMMENU 3
 struct MenuStruct memoryMenu[] = {
-    { "Squelch ", &getSquelch, &setSquelch},
-    { "Shift   ", &getShift, &setShift},
-    { "CTCSS   ", &getCTCSS, &setCTCSS},
-    { "Memory scan   ", 0, &scanMemory},
+	{ "Squelch ", &getSquelch, &setSquelch},
+	{ "Shift   ", &getShift, &setShift},
+	{ "CTCSS   ", &getCTCSS, &setCTCSS},
+	{ "Memory scan   ", 0, &scanMemory},
 };
 
 int Menu()
