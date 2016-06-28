@@ -1,12 +1,12 @@
 /*
  * 23cm JPD transceiver
  * 
- * #	change								date		by
- * ------------------------------------------------------------
- * 1.0	initial version						01-01-15	pe1jpd
- * 1.5	software squelch					26-05-15	pe1jpd
- * 2.0	PORTC change						01-07-15	pe1jpd
- * 2.1	PORTC bug solved					19-08-15	pe1jpd
+ * #	change					date		by
+ * -------------------------------------------------------------------
+ * 1.0	initial version				01-01-15	pe1jpd
+ * 1.5	software squelch			26-05-15	pe1jpd
+ * 2.0	PORTC change				01-07-15	pe1jpd
+ * 2.1	PORTC bug solved			19-08-15	pe1jpd
  * 2.2	fref saved/restored from eeprom		02-10-15	pe1jpd
  * 3.0	new update, incl memories and scan	01-06-16	pe1jpd
  */
@@ -52,8 +52,8 @@ ISR(INT1_vect)
 // Interrupt service routine Timer1
 ISR(TIMER1_OVF_vect) 
 { 
-	tick++;							// increment tick for freq save timeout
-	TCNT1 = 65536-toneCount;		// restart timer
+	tick++;						// increment tick for freq save timeout
+	TCNT1 = 65536-toneCount;			// restart timer
 
 	if (tx && tone>669)
 		tbi(PORTB, Beep);			// toggle Beep port
@@ -61,31 +61,28 @@ ISR(TIMER1_OVF_vect)
 
 void adcInit(void) 
 { 
-	ADCSRA = (1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2);  // prescaler /128
+	ADCSRA = (1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2); 	// prescaler /128
 #ifdef BOARD2
-	DIDR0 = (1<<ADC5D); 			// disable digital input
-	ADMUX = (1<<REFS0) + 5;			// ADC channel 5 
+	DIDR0 = (1<<ADC5D); 				// disable digital input
+	ADMUX = (1<<REFS0) + 5;				// ADC channel 5 
 #endif
 #ifdef BOARD1
-	DIDR0 = (1<<ADC0D); 			// disable digital input
-	ADMUX = (1<<REFS0) + 1;			// ADC channel 1 
+	DIDR0 = (1<<ADC0D); 				// disable digital input
+	ADMUX = (1<<REFS0) + 1;				// ADC channel 1 
 #endif
 } 
 
 void initInterrupts(void)
 {
 	EIMSK |= _BV(INT1);				// enable INT1
-	EICRA |= _BV(ISC11);			// int1 on falling edge
+	EICRA |= _BV(ISC11);				// int1 on falling edge
 
 	// Setup Timer 1
 	TCCR1A = 0x00;					// Normal Mode 
-	TCCR1B |= (1<<CS10);			// div/1 clock, 1/F_CPU clock
-
-	// setup PWM on OC1B
-//	TCCR1A |= (1<<OCR1B1)|(1<<OCR1B0);
+	TCCR1B |= (1<<CS10);				// div/1 clock, 1/F_CPU clock
 
 	// Enable interrupts as needed 
-	TIMSK1 |= _BV(TOIE1);  			// Timer 1 overflow interrupt 
+	TIMSK1 |= _BV(TOIE1);  				// Timer 1 overflow interrupt 
 
 	// enable interrupts
 	sei();
