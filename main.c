@@ -254,7 +254,7 @@ int main()
 	readGlobalSettings();
 
 	initInterrupts();
-    initPLL(freq - IF);
+	initPLL(freq - IF);
 
 	sprintf(str, "PE1JPD 23cm v%s", version);
 	lcdCursor(0,0);
@@ -283,7 +283,7 @@ int main()
 				break;
 		}
 
-    	// When switching to VFO or MEMORY mode,
+		// When switching to VFO or MEMORY mode,
 		// store squelchlevel, mode and selectedMemory
 		switch(mode) {
 			case VFO:      
@@ -303,11 +303,11 @@ void initPLL(long int f)
 
 	// set function latch
 	reg = 0x438086;
-    setPLL(reg);
+	setPLL(reg);
     
-    // init R-counter
+	// init R-counter
 	reg = (2UL<<16) + ((F_REF/F_RASTER)<<2);
-    setPLL(reg);
+	setPLL(reg);
 
 	setFrequency(f);
 
@@ -325,28 +325,28 @@ void setFrequency(long int f)
     
 	reg = ((B & 0x1fff)<<8) + ((A & 0x3f)<<2) + 1;
     
-    setPLL(reg);
+	setPLL(reg);
 }
 
 void setPLL(long int r)
 {
-    int i;
+	int i;
     
-    for (i=0; i<24; i++) {
-        if (r & 0x800000)
-            sbi(PORTC, DATA);
-        else
-            cbi(PORTC, DATA);
+	for (i=0; i<24; i++) {
+		if (r & 0x800000) {
+			sbi(PORTC, DATA);
+		}
+		else {
+			cbi(PORTC, DATA);
+		}
 		_delay_us(1);
-        sbi(PORTC, CLK);
-        _delay_us(1);
-        cbi(PORTC, CLK);
-        r <<= 1;
-    }
+		sbi(PORTC, CLK);
+		_delay_us(1);
+		cbi(PORTC, CLK);
+		r <<= 1;
+	}
 	_delay_us(1);
-    sbi(PORTC, LE);
-    _delay_us(1);
-    cbi(PORTC, LE);
+	sbi(PORTC, LE);
+	_delay_us(1);
+	cbi(PORTC, LE);
 }
-
-
