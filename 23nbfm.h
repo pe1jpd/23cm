@@ -1,6 +1,6 @@
 #define F_CPU 		1000000UL
 
-#define BOARD1
+#define BOARD2
 #define version		"3.0"
 
 #define F_REF		13000		// in kHz
