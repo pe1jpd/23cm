@@ -1,14 +1,16 @@
 /*
  * 23cm JPD transceiver
  * 
- * #	change					date		by
- * -------------------------------------------------------------------
- * 1.0	initial version				01-01-15	pe1jpd
- * 1.5	software squelch			26-05-15	pe1jpd
- * 2.0	PORTC change				01-07-15	pe1jpd
- * 2.1	PORTC bug solved			19-08-15	pe1jpd
+ * #	change								date		by
+ * ------------------------------------------------------------
+ * 1.0	initial version						01-01-15	pe1jpd
+ * 1.5	software squelch					26-05-15	pe1jpd
+ * 2.0	PORTC change						01-07-15	pe1jpd
+ * 2.1	PORTC bug solved					19-08-15	pe1jpd
  * 2.2	fref saved/restored from eeprom		02-10-15	pe1jpd
- * 3.0	new update, incl memories and scan	01-06-16	pe1jpd
+ * 3.1	new update, incl memories and scan	01-06-16	pe1jpd
+ * 3.2	for AO-92, fref=5kHz, menu update	12-02-18	pe1jpd
+ * 4.0	support ADF4113 and ADF4153			12-04-18	pe1jpd
  */
 
 #include <avr/io.h>
@@ -27,7 +29,7 @@ int mode;
 int selectedMemory;
 
 int lastSelectedMemory;
-int shift;
+int step, shift;
 long int freq, lastFreq;
 
 int tx = FALSE;
@@ -37,7 +39,7 @@ char str[16];
 int tick;
 
 int tone;
-long int toneCount;
+long toneCount;
 
 // Interrupt service routine INT1
 ISR(INT1_vect)
@@ -46,43 +48,41 @@ ISR(INT1_vect)
  		enc++;
 	else 
 		enc--;
-	_delay_ms(10);
+
+	_delay_ms(5);
 }
 
 // Interrupt service routine Timer1
 ISR(TIMER1_OVF_vect) 
 { 
-	tick++;						// increment tick for freq save timeout
-	TCNT1 = 65536-toneCount;			// restart timer
-
-	if (tx && tone>669)
+	TCNT1 = 65535-toneCount;		// restart timer
+	tick++;
+	if (tx && tone>=600)
 		tbi(PORTB, Beep);			// toggle Beep port
 } 
 
 void adcInit(void) 
 { 
-	ADCSRA = (1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2); 	// prescaler /128
+	ADCSRA = (1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2);  // prescaler /128
 #ifdef BOARD2
-	DIDR0 = (1<<ADC5D); 				// disable digital input
-	ADMUX = (1<<REFS0) + 5;				// ADC channel 5 
+	DIDR0 = (1<<ADC5D); 			// disable digital input
+	ADMUX = (1<<REFS0) + 5;			// ADC channel 5 
 #endif
 #ifdef BOARD1
-	DIDR0 = (1<<ADC0D); 				// disable digital input
-	ADMUX = (1<<REFS0) + 1;				// ADC channel 1 
+	DIDR0 = (1<<ADC0D); 			// disable digital input
+	ADMUX = (1<<REFS0) + 1;			// ADC channel 1 
 #endif
 } 
 
 void initInterrupts(void)
 {
 	EIMSK |= _BV(INT1);				// enable INT1
-	EICRA |= _BV(ISC11);				// int1 on falling edge
+	EICRA |= _BV(ISC11);			// int1 on falling edge
 
 	// Setup Timer 1
 	TCCR1A = 0x00;					// Normal Mode 
-	TCCR1B |= (1<<CS10);				// div/1 clock, 1/F_CPU clock
-
-	// Enable interrupts as needed 
-	TIMSK1 |= _BV(TOIE1);  				// Timer 1 overflow interrupt 
+	TCCR1B = 0x01;					// div/1 clock, 1/F_CPU clock
+	TIMSK1 |= (1 << TOIE1); 		// Timer1 overflow interrupt 
 
 	// enable interrupts
 	sei();
@@ -151,12 +151,9 @@ int handleRotary()
 	int count=0;
 
 	if (enc != 0) {
-		if (enc>0) {
-			enc--; count++;
-		}
-		if (enc<0) {
-			enc++; count--;
-		}
+		if (enc>0) count=1;
+		else if (enc<0)count=-1;
+		enc = 0;
 	}
 	return count;
 }
@@ -183,28 +180,34 @@ int rxtx()
 	}
 
 	if (tx) {
+		//keep smeter clear
 		s = 0;
 		// switch from tx to rx??
 		if (c & (1<<PTT) ) {
-			tx = FALSE;
 			cbi(PORTC, TXON);
-			lcdCursor(15,0);
-			lcdChar('R');
 			lastFreq = 0;
+			tx = FALSE;
 		}
 	}
 	else {
 		s = readRSSI();
+		displaySmeter(s);
+
 		// switch from rx to tx?
 		if (!(c & (1<<PTT) )) {
+			// clear smeter
 			s = 0;
-			tx = TRUE;
+			displaySmeter(s);
+			sbi(PORTC, MUTE);
 			sbi(PORTC, TXON);
-			lcdCursor(15,0);
-			lcdChar('T');
+			// force update pll
 			lastFreq = 0;
+			tx = TRUE;
 		}
 	}
+
+	// calc value for ISR
+	toneCount = 5*F_CPU/tone;
 
 	// freq change or update needed?
 	if (freq != lastFreq) {
@@ -219,9 +222,13 @@ int rxtx()
 		}
 		displayFrequency(f);
 		lastFreq = freq;
+		lcdCursor(15,0);
+		if (tx)
+			lcdChar('T');
+		else
+			lcdChar('R');
 	}
 
-	displaySmeter(s);
 	return s;
 }
 
@@ -252,9 +259,10 @@ int main()
 	adcInit();
 
 	readGlobalSettings();
+	toneCount = 5*F_CPU/tone;
 
 	initInterrupts();
-	initPLL(freq - IF);
+    initPLL();
 
 	sprintf(str, "PE1JPD 23cm v%s", version);
 	lcdCursor(0,0);
@@ -265,9 +273,11 @@ int main()
 		switch(mode) {
 			case VFO:
 				mode = Vfo();
+				writeGlobalSettings();
 				break;
 			case MEMORY:
 				mode = Memory();
+				writeGlobalSettings();
 				break;
 			case SPECTRUM:
 				mode = Spectrum();
@@ -282,18 +292,11 @@ int main()
 				mode = VFO;
 				break;
 		}
-
-		// When switching to VFO or MEMORY mode,
-		// store squelchlevel, mode and selectedMemory
-		switch(mode) {
-			case VFO:      
-			case MEMORY:
-			writeGlobalSettings();
-		}
 	}
 }
 
-void initPLL(long int f)
+#ifdef ADF4113
+void initPLL()
 {
     long int reg;
 
@@ -303,50 +306,103 @@ void initPLL(long int f)
 
 	// set function latch
 	reg = 0x438086;
-	setPLL(reg);
+    setPLL(reg);
     
-	// init R-counter
-	reg = (2UL<<16) + ((F_REF/F_RASTER)<<2);
-	setPLL(reg);
+    // init R-counter
+	reg = (2UL<<16) + ((F_REF/25)<<2);
+    setPLL(reg);
 
+	unsigned long f = 1170000;
 	setFrequency(f);
 
 	reg = 0x438082;
 	setPLL(reg);
 }
 
-void setFrequency(long int f)
+void setFrequency(unsigned long f)
 {
-	long int reg, frast, A, B;
+	long int reg, N, A, B;
     
-	frast = f/F_RASTER;
-	B = frast/16;
-	A = frast%16;
+	N = f/25;				// counter N in pll
+	B = N/8;				// split in A and B
+	A = N%8;
     
 	reg = ((B & 0x1fff)<<8) + ((A & 0x3f)<<2) + 1;
-    
+    setPLL(reg);				// set pll
+}
+#endif 
+
+#ifdef ADF4153
+void initPLL()
+{
+    unsigned long reg, cntr, R, N, M, F, P1, MUX;
+
+    cbi(PORTC, DATA);
+    cbi(PORTC, CLK);
+    cbi(PORTC, LE);
+
+	// zero noise&spur registers
+	reg = 0x000+3;
 	setPLL(reg);
+
+	// set lowest noise
+	reg = 0x3c4+3;
+	setPLL(reg);
+
+	// reset control reg
+	cntr = 0x001046;	//(0x10)+(1<<6)+(1<<2)+2;
+	setPLL(cntr);
+
+	// load MUX, R,M
+	P1 = 0;
+	R = 5;			// Fpfd = 2.6MHz
+	M = 2600;
+	MUX = 1;		// lock detect
+	reg = (MUX<<20)+(P1<<18)+(R<<14)+(M<<2)+1; //0x4168a1
+	setPLL(reg);
+
+	// load N,F for F=1170MHz
+	N = 450;
+	F = 0;
+	reg = (N<<14)+(F<<2); //0x708000
+	setPLL(reg);
+
+	// enable counter
+	cntr = 0x001042;
+	setPLL(cntr);
 }
 
-void setPLL(long int r)
+void setFrequency(unsigned long f)
 {
-	int i;
-    
-	for (i=0; i<24; i++) {
-		if (r & 0x800000) {
-			sbi(PORTC, DATA);
-		}
-		else {
-			cbi(PORTC, DATA);
-		}
-		_delay_us(1);
-		sbi(PORTC, CLK);
-		_delay_us(1);
-		cbi(PORTC, CLK);
-		r <<= 1;
-	}
-	_delay_us(1);
-	sbi(PORTC, LE);
-	_delay_us(1);
-	cbi(PORTC, LE);
+	long int reg, N, F;
+
+	N = f/2600;
+	F = f-2600*N;
+
+    reg = (N<<14)+(F<<2);
+    setPLL(reg);
 }
+#endif
+
+void setPLL(unsigned long r)
+{
+    int i;
+    
+    for (i=0; i<24; i++) {
+        if (r & 0x800000)
+            sbi(PORTC, DATA);
+        else
+            cbi(PORTC, DATA);
+		_delay_us(10);
+        sbi(PORTC, CLK);
+        _delay_us(10);
+        cbi(PORTC, CLK);
+        r <<= 1;
+    }
+	_delay_us(10);
+    sbi(PORTC, LE);
+    _delay_us(10);
+    cbi(PORTC, LE);
+}
+
+

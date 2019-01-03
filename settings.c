@@ -17,9 +17,8 @@ extern int squelchlevel;
 extern int mode;
 
 extern long int freq;
-extern int shift;
+extern int shift, step;
 extern int tone;
-extern long int toneCount;
 extern int lastSelectedMemory;
 
 // write default values in memories
@@ -28,11 +27,11 @@ void clearMemory()
 	squelchlevel = 0;
 	mode = VFO;
 	lastSelectedMemory = 0;
-
+	step = 25;
 	writeGlobalSettings();
 
 	freq = 1298000UL;
-	tone = 669;
+	tone = 599;
 	shift = 0;
 
 	for (int mem=0; mem<=MAXMEM; mem++) {
@@ -46,16 +45,20 @@ void readGlobalSettings()
 	unsigned int address = 0;
 
 	int magic = eeprom_read_word((unsigned int *)address);
-	address += 2;
-	if (magic != MAGICNUMBER)
+	if (magic != MAGICNUMBER) {
 		clearMemory();
-
-	squelchlevel = eeprom_read_word((unsigned int *)address);
-	address += 2;
-	mode = eeprom_read_word((unsigned int *)address);
-	address += 2;
-	lastSelectedMemory = eeprom_read_word((unsigned int *)address);
-	address += 2;
+	}
+	else {
+		address += 2;
+		squelchlevel = eeprom_read_word((unsigned int *)address);
+		address += 2;
+		mode = eeprom_read_word((unsigned int *)address);
+		address += 2;
+		lastSelectedMemory = eeprom_read_word((unsigned int *)address);
+		address += 2;
+		step = eeprom_read_word((unsigned int *)address);
+		address += 2;
+	}
 }
 
 void writeGlobalSettings()
@@ -69,6 +72,8 @@ void writeGlobalSettings()
 	eeprom_write_word((unsigned int *)address, (int)mode);
 	address += 2;
 	eeprom_write_word((unsigned int *)address, (int)lastSelectedMemory);
+	address += 2;
+	eeprom_write_word((unsigned int *)address, (int)step);
 	address += 2;
 }
 
@@ -89,9 +94,6 @@ void readMemory(int memory)
 	address += 2;
 	shift = eeprom_read_word((unsigned int *)address);
 	address += 2;
-
-	// set countervalue for ISR
-	toneCount = 5*F_CPU/tone;
 }
 
 

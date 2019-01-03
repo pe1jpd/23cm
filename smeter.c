@@ -8,6 +8,7 @@
 
 extern int tx;
 extern int squelchlevel;
+extern int mode;
 
 // define S-meter chars
 unsigned char smeterChars[3][8] = {
@@ -41,10 +42,15 @@ int readRSSI()
 	if (rssi<0) rssi=0;
 
 	// mute when tx or squelched
-	if (tx || rssi<squelchlevel)
+	if (tx || rssi<squelchlevel || mode==SPECTRUM) {
 		sbi(PORTC, MUTE);
-	else
+	}
+	else {
 		cbi(PORTC, MUTE);
+
+//		analog S output on Timer1, not implemted yet!
+//		OCR1B = rssi;
+	}
 
 	return rssi;
 }

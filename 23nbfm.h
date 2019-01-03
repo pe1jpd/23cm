@@ -1,10 +1,10 @@
 #define F_CPU 		1000000UL
 
 #define BOARD2
-#define version		"3.0"
+#define ADF4153
+#define version		"4.0"
 
 #define F_REF		13000		// in kHz
-#define F_RASTER 	25			// in kHz
 #define	IF			69300UL		// in kHz
 
 #define sbi(x,y)	x |= _BV(y) //set bit - using bitwise OR operator 
@@ -45,6 +45,8 @@
 #define PUSH		PD2
 #define ROTINT		PD3
 #define	ROT			PD4
+#define	DN			PD5
+#define	UP			PD6
 
 // LCD
 #define	LCD_D7		PB7
@@ -54,6 +56,7 @@
 #define	LCD_RS		PB1
 #define	LCD_E		PB0
 
+#define S			PB2
 #define Beep		PB3
 
 // modes, SPECTRUM is last mode
@@ -66,10 +69,10 @@
 #define MAXMEM 		10			// 9 memories and 1 vfo
 
 // function prototypes
-void initPLL(long int freq);
-void setPLL(long int r);
+void initPLL();
+void setPLL(unsigned long r);
 
-void setFrequency(long int freq);
+void setFrequency(unsigned long freq);
 void displayFrequency(long int f);
 
 void lcdInit();
@@ -87,8 +90,11 @@ int getRotaryPush();
 int handleRotary();
 void readMemory();
 void writeMemory();
+void readGlobalSettings();
 void writeGlobalSettings();
 int Vfo();
 int Spectrum();
 int Memory();
 int Menu();
+int MemoryMenu();
+int readUpDn();

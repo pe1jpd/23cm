@@ -1,6 +1,5 @@
 /*
- * Handle the loops in which the program can sit: 
- * vfo, memory, menu and memoryMenu.
+ * loop when in VFO-mode 
  */
 #include <avr/io.h>
 #include <stdio.h>
@@ -14,8 +13,9 @@ void createSmeterChars();
 int rxtx();
 
 extern long int freq, lastFreq;
-extern int shift;
+extern int step, shift;
 extern int squelchlevel;
+extern int tx;
 extern int tone;
 extern int selectedMemory;
 extern int lastSelectedMemory;
@@ -26,6 +26,8 @@ char str[16];
 
 int Vfo() 
 {
+	int updn;
+
 	createSmeterChars();
 
 	// get the last freq and settings for mode VFO
@@ -50,10 +52,20 @@ int Vfo()
 		// handle encoder 
 		int c = handleRotary();
 		if (c!=0) {
-			freq += c * F_RASTER;
+			freq += c*step;
+			// frequency needs to fit raster
+			freq = (freq/step)*step;
 			// restart timer for inactivity
 			tick = 0;
 		}
+		
+		updn = readUpDn();
+		if (updn) {
+			// up/down always in 1kHz steps
+			freq += updn;
+			tick = 0;
+		}
+
 
 		// save new vfo frequency in eeprom after ~2 secs inactivity
 		if (tick > 200 && freq != savedFreq) {
@@ -64,6 +76,7 @@ int Vfo()
 		int push = getRotaryPush();
 		if (push) {
 			writeMemory(selectedMemory);
+			writeGlobalSettings();
 			if (push == LONG)
 				return MENU;
 			else
@@ -71,7 +84,23 @@ int Vfo()
 		}
     }
 
+	// never get here..
 	return VFO;
+}
+
+
+int readUpDn()
+{
+	register unsigned int b;
+
+	// positive pulses!!
+	b = (PIND&0x60)>>5;
+	if (b==2)
+		return 1;		// Up
+	else if (b==1)
+		return -1;		// Down
+
+	return 0;
 }
 
 int Memory()
@@ -114,12 +143,20 @@ int Memory()
 
 			// and load it
 			readMemory(selectedMemory);
+			tick=0;
+		}
+
+		// save current memorychannel in eeprom after ~2 secs inactivity
+		if (tick > 200 && selectedMemory != lastSelectedMemory) {
+			lastSelectedMemory = selectedMemory;
+			writeGlobalSettings();
 		}
 
 		int push = getRotaryPush();
 		if (push) {
 			lastSelectedMemory = selectedMemory;
 			writeMemory(selectedMemory);
+			writeGlobalSettings();
 			if (push == LONG)
 				return MEMORY_MENU;
 			else
@@ -127,6 +164,7 @@ int Memory()
 		}
 	}
 
+	// never get here..
 	return VFO;
 }
 
@@ -137,7 +175,7 @@ void getSquelch()
 	lcdStr(str);
 }
 
-void setSquelch()
+int setSquelch()
 {
 	for (;;) {
 
@@ -162,8 +200,11 @@ void setSquelch()
 			// squelch
 			readRSSI();
 
-			if (getRotaryPush())
-				return;
+			int push = getRotaryPush();
+			if (push) {
+				writeGlobalSettings();
+				return push;
+			}
 		}
 	}
 }
@@ -175,7 +216,7 @@ void getShift()
 	lcdStr(str);
 }
 
-void setShift()
+int setShift()
 {
 	int sh = shift;
 
@@ -198,10 +239,56 @@ void setShift()
 				break;
 			}
 
-			if (getRotaryPush()) {
+			int push = getRotaryPush();
+			if (push) {
 				shift = sh;
 				writeMemory(selectedMemory);
-				return;
+				return push;
+			}
+		}
+	}
+}
+
+void getStep()
+{
+	sprintf(str, "  %d  ", step);
+	lcdCursor(9,1);
+	lcdStr(str);
+}
+
+int setStep()
+{
+	for (;;) {
+
+		sprintf(str, "> %d  ", step);
+		lcdCursor(9,1);
+		lcdStr(str);
+
+
+		for (;;) {
+			// handle encoder 
+			int c = handleRotary();
+			if (c!=0) {
+				if (c>0) {
+					if (step==1) step=25;
+					else if (step==25) step=500;
+					else step=1;
+				}
+				else {
+					if (step==500) step=25;
+					else if(step==25) step=1;
+					else step=500;
+				}
+#ifdef ADF4113
+				if (step<25) step=25;
+#endif
+				break;
+			}
+
+			int push = getRotaryPush();
+			if (push) {
+				writeGlobalSettings();
+				return push;
 			}
 		}
 	}
@@ -210,24 +297,22 @@ void setShift()
 void getCTCSS()
 {
 	lcdCursor(9,1);
-	if (tone>669)
+	if (tone>=600)
 		sprintf(str, "  %d.%d", (int)(tone/10), (int)(tone%10));
 	else
 		sprintf(str, "  off  ");
 	lcdStr(str);
 }
 
-void setCTCSS()
+int setCTCSS()
 {
-	int t = tone;
-
 	for (;;) {
 
 		lcdCursor(9,1);
-		if (t>669)
-			sprintf(str, "> %d.%d", (int)(t/10), (int)(t%10));
-		else
+		if (tone<600)
 			sprintf(str, "> off  ");
+		else
+			sprintf(str, "> %d.%d ", (int)(tone/10), (int)(tone%10));
 		lcdStr(str);
 
 		for (;;) {
@@ -235,17 +320,17 @@ void setCTCSS()
 			int c = handleRotary();
 			if (c!=0) {
 				if (c>0) {
-					if (++t>1500) t=1500;
+					if (++tone>1500) tone=1500;
 				}
 				else {
-					if (--t<649) t=649;
+					if (--tone<599) tone=599;
 				}
 				break;
 			}
-			if (getRotaryPush()) {
-				tone = t;
+			int push = getRotaryPush();
+			if (push) {
 				writeMemory(selectedMemory);
-				return;
+				return push;
 			}
 		}
 	}
@@ -259,8 +344,9 @@ void getMemory()
 	lcdStr(str);
 }
 
-void setMemory(int set)
+int setMemory(int set)
 {
+	int push;
 
 	for (;;) {
 
@@ -282,9 +368,11 @@ void setMemory(int set)
 				}
 				break;
 			}
-			if (getRotaryPush()) {
+			push = getRotaryPush();
+			if (push) {
+				lastSelectedMemory = selectedMemory;
 				writeMemory(selectedMemory);
-				return ;
+				return push;
 			}
 		}
 	}
@@ -303,48 +391,56 @@ void scanMemory()
 
 			readMemory(selectedMemory);
 			setFrequency(freq - IF);
+
+			// not too fast
 			_delay_ms(200);
 
-			if (tx || getRotaryPush()) return;
+			if (tx || getRotaryPush())
+				return;
 
 			int s = readRSSI();
 			if (s > squelchlevel) {
+
+				// now receiving so show the current frequency
+				displayFrequency(freq);
+
 				for (;;) {
 					s = rxtx(); 
-					if (s > squelchlevel) tick = 0;
-					int push = getRotaryPush();
-					if (tx || push) {
-						if (push == SHORT) break;
-						else return;
-					}
-					if (tick > 200)	break;
+					if (s > squelchlevel)
+						tick = 0;
+					if (tx || getRotaryPush())
+						return;
+					if (tick > 200)
+						break;
 				}
 			}
 		}
 	}
 }
 
+
 struct MenuStruct {
-	char *name;
+    char *name;
 	void (* get)();
-	void (* set)();
+	int (* set)();
 };
 
-#define MAXMENU 3
+#define MAXMENU 4
 struct MenuStruct mainMenu[] = {
-	{ "Squelch ", &getSquelch, &setSquelch},
-	{ "Shift   ", &getShift, &setShift},
-	{ "CTCSS   ", &getCTCSS, &setCTCSS},
+    { "Squelch ", &getSquelch, &setSquelch},
+    { "Step    ", &getStep, &setStep},
+    { "Shift   ", &getShift, &setShift},
+    { "CTCSS   ", &getCTCSS, &setCTCSS},
 	{ "Store   ", &getMemory, &setMemory},
 //	{ "Spectrum scan ", 0, &Spectrum},
 };
 
 #define MAXMEMMENU 3
 struct MenuStruct memoryMenu[] = {
-	{ "Squelch ", &getSquelch, &setSquelch},
-	{ "Shift   ", &getShift, &setShift},
-	{ "CTCSS   ", &getCTCSS, &setCTCSS},
-	{ "Memory scan   ", 0, &scanMemory},
+    { "Squelch ", &getSquelch, &setSquelch},
+    { "Shift   ", &getShift, &setShift},
+    { "CTCSS   ", &getCTCSS, &setCTCSS},
+    { "Memory scan   ", NULL, &scanMemory},
 };
 
 int Menu()
@@ -365,6 +461,9 @@ int Menu()
 		while (!(PIND & (1<<PUSH))) ;
 
 		for (;;) {
+			// don't forget to squelch..
+			readRSSI();
+
 			// handle encoder 
 			int c = handleRotary();
 			if (c!=0) {
@@ -380,12 +479,16 @@ int Menu()
 			int push = getRotaryPush();
 			if (push) {
 				if (push == SHORT) {
-					menu[i].set();
-					// when memory stored, activate that memory
-					if (i==3)
-						return MEMORY;
+					push = menu[i].set();
 				}
-				return VFO;
+				if (push == LONG) {
+					// when memory stored, activate that memory
+					if (i==4)
+						return MEMORY;
+					else
+						return VFO;
+				}
+				break;
 			}
 		}
 	}
@@ -410,6 +513,9 @@ int MemoryMenu()
 		while (!(PIND & (1<<PUSH))) ;
 
 		for (;;) {
+			// don't forget to squelch
+			readRSSI();
+
 			// handle encoder 
 			int c = handleRotary();
 			if (c!=0) {
@@ -424,9 +530,12 @@ int MemoryMenu()
 
 			int push = getRotaryPush();
 			if (push) {
-				if (push == SHORT)
-					menu[i].set();
-				return MEMORY;
+				if (push == SHORT) {
+					push = menu[i].set();
+				}
+				if (push == LONG)
+					return MEMORY;
+				break;
 			}
 		}
 	}

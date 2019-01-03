@@ -14,6 +14,7 @@ extern long int freq;
 
 // internal function prototypes
 void createGraphCharacters();
+int getRSSI(long int f);
 int avgRSSI();
 
 // define S-meter chars
@@ -30,7 +31,7 @@ unsigned char spectrumChars[8][8] = {
 
 /* Maps values (the index) to characters (the value) */
 unsigned char graphCharacterMap[9] =  { ' ', 0, 1, 2, 3, 4, 5, 6, 7 };
-long int scanWidth = 5000000;
+long int scanWidth = 800000;
 
 
 int Spectrum() {
@@ -39,9 +40,9 @@ int Spectrum() {
 	lcdClear();
 	createGraphCharacters();
   
-	long int startFreq = 1292000; //freq - scanWidth/2;
-	long int endFreq   = 1300000; //freq + scanWidth/2;
-	long int step = (endFreq - startFreq)/16;
+//	long int startFreq = freq - scanWidth/2;
+//	long int endFreq   = freq + scanWidth/2;
+//	long int step = 25000; //(endFreq - startFreq)/16;
   
 	// mute the rx during spectrum display
 	sbi(PORTC, MUTE);
@@ -49,7 +50,8 @@ int Spectrum() {
 	for (;;) {
 		for (x=0; x<16; x++) {
 
-    	  	int rssi = avgRSSI(startFreq+x*step, startFreq+x*step+step);
+			int rssi = getRSSI(freq+x);
+//    	  	int rssi = avgRSSI(startFreq+x*step, startFreq+x*step+step);
 
 			if (getRotaryPush())
 				return VFO;
@@ -69,12 +71,26 @@ int Spectrum() {
 	}
 }
 
+int getRSSI(long int f)
+{
+	int rssi=0;
+
+	setFrequency(f - IF);
+
+	if (getRotaryPush()) return TRUE;
+
+	rssi = max(rssi, readRSSI());
+
+	if (rssi < 0) rssi = 0;
+	return rssi;
+}
+
 int avgRSSI(long int start, long int end)
 {
 	int rssi=0;
 	long int f;
 
-	for (f=start; f<end; f+=F_RASTER) {
+	for (f=start; f<end; f+=10) {
 
 		setFrequency(f - IF);
 		if (getRotaryPush()) return TRUE;
