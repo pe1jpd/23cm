@@ -11,6 +11,7 @@
  * 3.1	new update, incl memories and scan	01-06-16	pe1jpd
  * 3.2	for AO-92, fref=5kHz, menu update	12-02-18	pe1jpd
  * 4.0	support ADF4113 and ADF4153			12-04-18	pe1jpd
+ * 4.1	included sequencer oaxrelais PD7	12-04-18	pe1jpd
  */
 
 #include <avr/io.h>
@@ -184,7 +185,8 @@ int rxtx()
 		s = 0;
 		// switch from tx to rx??
 		if (c & (1<<PTT) ) {
-			cbi(PORTC, TXON);
+			// sequencer tx off
+			switch_tx_off();
 			lastFreq = 0;
 			tx = FALSE;
 		}
@@ -198,8 +200,8 @@ int rxtx()
 			// clear smeter
 			s = 0;
 			displaySmeter(s);
-			sbi(PORTC, MUTE);
-			sbi(PORTC, TXON);
+			// sequencer tx on
+			switch_tx_on();
 			// force update pll
 			lastFreq = 0;
 			tx = TRUE;
@@ -232,6 +234,29 @@ int rxtx()
 	return s;
 }
 
+void switch_tx_on()
+{
+	// mute receiver
+	sbi(PORTC, MUTE);
+	// switch coax relais to tx
+	sbi(PORTD, SEQ);
+	//wait a bit
+	_delay_ms(200);
+	// switch on tx
+	sbi(PORTC, TXON);
+}
+
+void switch_tx_off()
+{
+	// switch tx off
+	cbi(PORTC, TXON);
+	// wait a bit
+	_delay_ms(200);
+	// switch coax relay to rx
+	cbi(PORTD,SEQ);
+}
+
+
 int main()
 {
 	// PORTB output for LCD
@@ -251,9 +276,9 @@ int main()
 	sbi(PORTC, MUTE);
 #endif
 
-	// PORTD is input with pullup
-	DDRD = 0x00;
-	PORTD = 0xff;
+	// PD0-PD6 input with pullup, PD7 output, low
+	DDRD = 0x80;
+	PORTD = 0x7f;
 
 	lcdInit();
 	adcInit();
@@ -324,8 +349,8 @@ void setFrequency(unsigned long f)
 	long int reg, N, A, B;
     
 	N = f/25;				// counter N in pll
-	B = N/8;				// split in A and B
-	A = N%8;
+	B = N/16;				// split in A and B
+	A = N%16;
     
 	reg = ((B & 0x1fff)<<8) + ((A & 0x3f)<<2) + 1;
     setPLL(reg);				// set pll

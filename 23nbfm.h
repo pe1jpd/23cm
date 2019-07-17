@@ -2,7 +2,7 @@
 
 #define BOARD2
 #define ADF4153
-#define version		"4.0"
+#define version		"4.1"
 
 #define F_REF		13000		// in kHz
 #define	IF			69300UL		// in kHz
@@ -47,6 +47,7 @@
 #define	ROT			PD4
 #define	DN			PD5
 #define	UP			PD6
+#define SEQ			PD7
 
 // LCD
 #define	LCD_D7		PB7
@@ -98,3 +99,6 @@ int Memory();
 int Menu();
 int MemoryMenu();
 int readUpDn();
+void switch_tx_on();
+void switch_tx_off();
+
