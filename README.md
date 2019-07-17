@@ -1,6 +1,12 @@
 # 23cm
 23cm NBFM transceiver
 
+Update 17 july 2019
+Uploaded v4.1, with the following changes:
+- added support for the fractional N pll ADF4153, selectable in the .h file
+- added support for a sequencer on PD7 for swiching an external coaxrelais in case of higer power with a PA
+- some minor changes over time
+
 These files are the sources for my design of the 23cm NBFM transceiver. 
 For more information or a complete kit please visit www.pe1jpd.nl.
 The development environment is AVR Studio 4 from Atmel.
