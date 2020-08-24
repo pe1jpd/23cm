@@ -25,6 +25,9 @@ The ADF4113 is no longer manufactured, and the ADF4153 is a modern fractional N 
 
 Hi all,
 
-from 13 july 2020 I have started to update the version V4.1 from Bas. The first thing what I have done was to implement an LCD with 4 x 20 characters and update the software to use it.
+from 13 july 2020 I have started to update the version V4.1 from Bas.
+The development environment is AtmelStudio 7.0. For more information please visit www.mdtweb.de.
+
+The first thing what I have done was to implement an LCD with 4 x 20 characters and updated software to use it.
 
 73 de Werner, DG8WM
