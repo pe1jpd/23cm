@@ -21,3 +21,10 @@ Via a #define setting in the h-file you can now choose the type of PLL: ADF4113 
 The ADF4113 is no longer manufactured, and the ADF4153 is a modern fractional N PLL with which frequency steps of 1 kHz are possible. The default is however still set on 25 kHz. With the unchanged loop filter the new PLL locks ok, but low frequencies of the modulated audio are less pronounced. This effects also in the CTCSS, which is now much weaker. Some experiments with parts in the loop filter are useful. 
 
 73 de Bas, PE1JPD
+
+
+Hi all,
+
+from 13 july 2020 I have started to update the version V4.1 from Bas. The first thing what I have done was to implement an LCD with 4 x 20 characters and update the software to use it.
+
+73 de Werner, DG8WM
