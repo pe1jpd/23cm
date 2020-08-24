@@ -1,24 +1,54 @@
 /*
  * 23cm JPD transceiver
  * 
- * #	change								date		by
- * ------------------------------------------------------------
- * 1.0	initial version						01-01-15	pe1jpd
- * 1.5	software squelch					26-05-15	pe1jpd
- * 2.0	PORTC change						01-07-15	pe1jpd
- * 2.1	PORTC bug solved					19-08-15	pe1jpd
- * 2.2	fref saved/restored from eeprom		02-10-15	pe1jpd
- * 3.1	new update, incl memories and scan	01-06-16	pe1jpd
- * 3.2	for AO-92, fref=5kHz, menu update	12-02-18	pe1jpd
- * 4.0	support ADF4113 and ADF4153			12-04-18	pe1jpd
- * 4.1	included sequencer oaxrelais PD7	12-04-18	pe1jpd
+ * #	change												date		by
+ * ---------------------------------------------------------------------------
+ * 1.0	Initial version										01-01-15	pe1jpd
+ * 1.5	Software squelch									26-05-15	pe1jpd
+ * 2.0	PORTC change										01-07-15	pe1jpd
+ * 2.1	PORTC bug solved									19-08-15	pe1jpd
+ * 2.2	fref saved/restored from eeprom						02-10-15	pe1jpd
+ * 3.1	New update, incl memories and scan					01-06-16	pe1jpd
+ * 3.2	For AO-92, fref=5kHz, menu update					12-02-18	pe1jpd
+ * 4.0	Support ADF4113 and ADF4153							12-04-18	pe1jpd
+ * 4.1	Included sequencer koaxrelais PD7					12-04-18	pe1jpd
+ * 4.2  LCD 4x20 ...										13-07-20	wm DG8WM
+ * 4.2  Frequency Adjust +-999 KHz							14-07-20	wm
+ * 4.2  Frequency Adjust +-200 KHz							16-07-20	wm
+ * 4.2	Display Squelch, Shift, Step						16-07-20	wm
+ * 4.2	max. Step 1000 KHz									16-07-20	wm
+ * 4.2  New Encoder Handling								18-07-20	wm
+ * 4.2	Display RSSI value in dBm							19-07-20	wm
+ * 4.2	"V"FO Problem cleared								20-07-20	wm
+ * 4.2	Display reverse	mode								20-07-20	wm
+ * 4.2	Added "Hz" to CTCSS									21-07-20	wm
+ * 4.2	2-line LCD improved									28-07-20	wm
+ * 4.2	RSSI Display improved								28-07-20	wm
+ * 4.2	Update Parameters in Memory Mode					30-07-20	wm
+ * 4.2	Write only to eeprom, if value has changed			30-07-20	wm
+ * 4.3	Write eeprom, correction (int)shift					12-08-20	wm
+ * 4.3	Correction step down								12-08-20	wm
+ * 4.3	Display in Memory Mode 'CTCSS', VFO Mode 'Step'		12-08-20	wm
+ * 4.4  Change SEQ from PD7 to PB2							17-08-20	wm
+ * 4.4	1750 Hz Tone PD7									17-08-20	wm
+ * 4.4	Double click PTT for 1750 Hz tone					20-08-20	wm
+ */
+
+
+/*
+ *
+ *		'#define LCD_20x4' delete this for 2-line LCD in 23nbfm.h		wm
+ *		'#define PB2_SEQ' for use PB2 and not PD7 for SEQ				wm
+ *		'#define TONE_1750' and '#define PB2_SEQ' 1750 Hz on PD7 		wm
+ *
  */
 
 #include <avr/io.h>
 #include <stdio.h>
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
-#include <avr/eeprom.h>
+#include <avr/eeprom.h>												// wm
+#include <avr/pgmspace.h>											// wm
 #include "23nbfm.h"
 #include <util/delay.h>
 
@@ -31,63 +61,190 @@ int selectedMemory;
 
 int lastSelectedMemory;
 int step, shift;
+
+#ifdef ADF4153														// wm
+	int frqadj;
+#endif
+
 long int freq, lastFreq;
 
 int tx = FALSE;
 int rv = FALSE;
 int enc = 0;
-char str[16];
+char str[20];														// wm str[16];
 int tick;
 
-int tone;
-long toneCount;
+int tone;															// CTCSS-Tone
+long toneCount;														// var for Timer1
 
-// Interrupt service routine INT1
-ISR(INT1_vect)
-{
-	if (PIND & (1<<ROT))
- 		enc++;
-	else 
-		enc--;
+#ifdef DECODER														// wm
+	volatile int8_t enc_delta;										// Drehgeberbewegung zwischen zwei Auslesungen im Hauptprogramm
+#endif
 
-	_delay_ms(5);
-}
+#ifdef DECODER														// wm
+	// Dekodertabelle für wackeligen Rastpunkt
+	// Quelle: https://www.mikrocontroller.net/articles/Drehgeber
+	
+	// viertel Auflösung											// wm
+	const int8_t table[16] PROGMEM = {0,0,-1,0,0,0,0,1,0,0,0,0,0,0,0,0};
+
+	// halbe Auflösung
+	// const int8_t table[16] PROGMEM = {0,0,-1,0,0,0,0,1,1,0,0,0,0,-1,0,0};
+		
+	// Dekodertabelle für normale Drehgeber
+	// volle Auflösung
+	// const int8_t table[16] PROGMEM = {0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};
+
+	ISR( TIMER0_COMPA_vect )										// 1ms fuer manuelle Eingabe
+	{
+		static int8_t last=0;										// alten Wert speichern
+
+		last = (last << 2)  & 0x0F;
+		if (PHASE_A) last |=2;
+		if (PHASE_B) last |=1;
+		enc_delta += pgm_read_byte(&table[last]);
+	}
+
+	void encode_init( void )										// Timer 0 initialisieren
+	{
+		TIFR0 |= (1<<OCF0A);										// Clear Interrupt Request
+		TIMSK0 |= 1<<OCIE0A;										// Enable Output Compare A Interrupt
+		
+//		OCR0A = (uint8_t)(XTAL / 8.0 * 1e-3 - 0.5);					// 1ms ==> XTAL/8 * 1e-3 - 0.5 = 124						<<<<<
+		OCR0A = 125;												// 1ms Compare Time
+		TCNT0 = 0;
+		TCCR0A |= 1 << WGM01;										// CTC Mode 2
+		TCCR0B |= 1 << CS01;										// Prescale XTAL / 8, Timer0 Start
+	}
+#else
+	// Interrupt service routine INT1
+	ISR(INT1_vect)
+	{
+		if (PIND & (1<<ROT))
+ 			enc++;
+		else 
+			enc--;
+
+		_delay_ms(5);
+	}
+#endif
+
 
 // Interrupt service routine Timer1
-ISR(TIMER1_OVF_vect) 
+ISR(TIMER1_OVF_vect)				// CTCSS-Ton
 { 
-	TCNT1 = 65535-toneCount;		// restart timer
+	TCNT1 = 65535-toneCount;		// restart timer 1
 	tick++;
 	if (tx && tone>=600)
-		tbi(PORTB, Beep);			// toggle Beep port
+		tbi(PORTB, Beep);			// toggle Beep port	
 } 
 
-void adcInit(void) 
-{ 
-	ADCSRA = (1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2);  // prescaler /128
-#ifdef BOARD2
-	DIDR0 = (1<<ADC5D); 			// disable digital input
-	ADMUX = (1<<REFS0) + 5;			// ADC channel 5 
+#ifdef TONE_1750													// wm
+	// Interrupt service routine Timer2
+	ISR(TIMER2_OVF_vect)											// 1750 Hz
+	{
+		if (tx && tone==599)
+		{
+			TCNT2 = 225;											// restart Timer 2, 1743 Hz
+			tbi(PORTD, CT);											// toggle CT
+		}
+	}
 #endif
-#ifdef BOARD1
-	DIDR0 = (1<<ADC0D); 			// disable digital input
-	ADMUX = (1<<REFS0) + 1;			// ADC channel 1 
-#endif
-} 
 
 void initInterrupts(void)
 {
-	EIMSK |= _BV(INT1);				// enable INT1
-	EICRA |= _BV(ISC11);			// int1 on falling edge
+	#ifdef DECODER													// wm
+		encode_init();
+	#else
+		EIMSK |= _BV(INT1);			// enable INT1
+		EICRA |= _BV(ISC11);		// int1 on falling edge
+	#endif
 
-	// Setup Timer 1
+	// Setup Timer 1				// CTCSS
 	TCCR1A = 0x00;					// Normal Mode 
-	TCCR1B = 0x01;					// div/1 clock, 1/F_CPU clock
+	TCCR1B = 0x01;					// div/1 clock, F_CPU clock/1
 	TIMSK1 |= (1 << TOIE1); 		// Timer1 overflow interrupt 
+
+	#ifdef TONE_1750				// wm
+		//Setup Timer 2				// 1750 Hz
+		TCCR2A = 0X00;				// Normal Mode
+		TCCR2B = 0x00;				// (F_CPU clock/8), stop Timer 2
+		TIMSK2 |= (1 << TOIE2);		// Timer2 overflow interrupt 
+	#endif
 
 	// enable interrupts
 	sei();
 }
+
+
+void adcInit(void)
+{
+	ADCSRA = (1<<ADPS0)|(1<<ADPS1)|(1<<ADPS2);  // prescaler /128
+	#ifdef BOARD2
+	DIDR0 = (1<<ADC5D); 			// disable digital input cannel 5
+	ADMUX = (1<<REFS0) + 5;			// ADC channel 5, ARef = Vcc
+	#endif
+	#ifdef BOARD1
+	DIDR0 = (1<<ADC0D); 			// disable digital input
+	ADMUX = (1<<REFS0) + 1;			// ADC channel 1
+	#endif
+}
+
+
+int getRotaryPush()
+{
+	int t, c = PIND;
+
+	// rotary button pushed?
+	if (!(c & (1<<PUSH))) {
+		for (t=0; t<5; t++) {
+			_delay_ms(100);
+			// button released?
+			if ((PIND & (1<<PUSH)))
+			break;
+		}
+		if (t>3)
+		return LONG;
+		else
+		return SHORT;
+	}
+
+	return FALSE;
+}
+
+
+#ifdef DECODER														//wm
+	int handleRotary( void )         // Encoder auslesen
+	{
+		int8_t val = 0;
+
+		// atomarer Variablenzugriff
+		cli();
+		
+		if (enc_delta != 0) {
+			if (enc_delta > 0) val = 1;
+			else if (enc_delta < 0) val = -1; 
+		 
+			enc_delta = 0;
+		}
+		
+		sei();
+		return val;
+	}
+#else
+	int handleRotary()
+	{
+		int count=0;
+
+		if (enc != 0) {
+			if (enc>0) count=1;
+			else if (enc<0)count=-1;
+			enc = 0;
+		}
+		return count;
+	}
+#endif
+
 
 void hex2bcd(long int f)
 {
@@ -108,6 +265,7 @@ void hex2bcd(long int f)
 	}
 }
 
+
 void displayFrequency(long int f)
 {
 	int i;
@@ -126,42 +284,58 @@ void displayFrequency(long int f)
 	}
 }
 
-int getRotaryPush()
-{
-	int t, c = PIND;
 
-	// rotary button pushed?
-	if (!(c & (1<<PUSH))) {
-		for (t=0; t<5; t++) {
-			_delay_ms(100);
-			// button released?
-			if ((PIND & (1<<PUSH)))
-				break;
+void displayParameter()												// wm
+{
+	lcdCursor(0,1);
+	
+	if (selectedMemory==MAXMEM)										// VFO Mode
+	{
+		sprintf(str, "Sq %2d Sh %3d St %4d", squelchlevel, shift, step);
+	}
+	else															// Memory Mode
+	{
+		if (tone<599)
+		{
+			sprintf(str, "Sq %2d Sh %3d To  off", squelchlevel, shift);
 		}
-		if (t>3)
-			return LONG;
+		else if (tone==599)
+		{
+			sprintf(str, "Sq %2d Sh %3d To 1750", squelchlevel, shift);
+		}
 		else
-			return SHORT;
+		{
+			sprintf(str, "Sq %2d Sh %3d To%3d.%1d", squelchlevel, shift, (int)(tone/10), (int)(tone%10));
+		}
 	}
-
-	return FALSE;
+	lcdStr(str);		
 }
 
-int handleRotary()
+
+int TX_ok()												// wm
 {
-	int count=0;
-
-	if (enc != 0) {
-		if (enc>0) count=1;
-		else if (enc<0)count=-1;
-		enc = 0;
-	}
-	return count;
+	// clear smeter
+	int s = 0;
+	
+	#ifdef LCD_20x4										// wm Clear RSSI
+	displayRSSI(s);
+	#endif
+	
+	displaySmeter(s);									// Clear S-Meter
+	// sequencer tx on
+	switch_tx_on();
+	// force update pll
+	lastFreq = 0;
+	tx = TRUE;
+	
+	return s;
 }
+
 
 int rxtx()
 {
 	int s;
+	int t_1750;														// wm 
 
 	// read ptt on PORTD
 	int c = PIND;
@@ -171,20 +345,33 @@ int rxtx()
 		if (c & (1<<REVERSE)) {
 			lastFreq = 0;
 			rv = FALSE;
+
+			
+			lcdCursor(3,0);
+			lcdData(' ');
 		}
 	}
 	else {
 		if (!(c & (1<<REVERSE))) {
 			lastFreq = 0;
 			rv = TRUE;
+			
+			lcdCursor(3,0);
+			lcdData(3);
 		}
 	}
 
 	if (tx) {
 		//keep smeter clear
 		s = 0;
-		// switch from tx to rx??
-		if (c & (1<<PTT) ) {
+		// switch from tx to rx??									// PTT high switch Tx off
+		if (c & (1<<PTT) ) 
+		{
+			#ifdef TONE_1750
+				TCCR2B = 0x00;										// (F_CPU clock/8), stop Timer 2
+				cbi(PORTD, CT);										// PB07 low
+			#endif
+			
 			// sequencer tx off
 			switch_tx_off();
 			lastFreq = 0;
@@ -193,23 +380,57 @@ int rxtx()
 	}
 	else {
 		s = readRSSI();
+		
+		#ifdef LCD_20x4												// wm
+			displayRSSI(s);
+		#endif
+		
 		displaySmeter(s);
 
 		// switch from rx to tx?
-		if (!(c & (1<<PTT) )) {
-			// clear smeter
-			s = 0;
-			displaySmeter(s);
-			// sequencer tx on
-			switch_tx_on();
-			// force update pll
-			lastFreq = 0;
-			tx = TRUE;
+		if (!(c & (1<<PTT)))								 			// PTT low switch Tx on 
+		{
+			#ifdef TONE_1750											// wm
+				if (tone == 599)										// 1750 Hz is selected
+				{
+					tick = 0;											// reset counter, 1 tick  ~ 8 ms
+					t_1750 = 0;
+					
+					do
+					{
+						_delay_ms(1);									// must be here
+						if (PIND & (1<<PTT))							// PTT high
+						{
+							while ((tick < 20) && (PIND & (1<<PTT)));	// wait for PTT low or time out
+						
+							if (!(PIND & (1<<PTT)))
+							{
+								// switch on 1750 Hz
+								TCCR2B = (1 << CS21);					// start Timer 2, F_CPU/8
+								t_1750 = 1;								// PTT low --> 1750 Hz Tone
+							}
+							else
+								t_1750 = -1;							// time out PTT high --> break
+						}
+						
+						if (t_1750 != 0)
+							break;
+					}
+					while ((tick < 20) && !(tx));
+				
+					if (t_1750 > -1)
+						s = TX_ok();									// time out PTT low --> without 1750 Hz Tone
+				}
+				else			
+					s = TX_ok();										// 1750 Hz not selected PTT low
+			#else	
+				s = TX_ok();
+			#endif
 		}
 	}
 
 	// calc value for ISR
-	toneCount = 5*F_CPU/tone;
+	toneCount = 5*F_CPU/tone;										// CTCSS 
 
 	// freq change or update needed?
 	if (freq != lastFreq) {
@@ -222,29 +443,49 @@ int rxtx()
 			if (rv) f += (long int)shift*1000;
 			setFrequency(f - IF);
 		}
+		
 		displayFrequency(f);
 		lastFreq = freq;
-		lcdCursor(15,0);
-		if (tx)
-			lcdChar('T');
-		else
-			lcdChar('R');
+		
+		#ifdef LCD_20x4												// wm
+			displayParameter();
+			lcdCursor(18,0);
+			
+			if (tx)
+				lcdStr("Tx");
+			else
+				lcdStr("Rx");
+		#else
+			lcdCursor(15,0);
+			if (tx)
+				lcdChar('T');
+			else
+				lcdChar('R');
+		#endif
 	}
 
 	return s;
 }
 
+
 void switch_tx_on()
 {
 	// mute receiver
 	sbi(PORTC, MUTE);
+
 	// switch coax relais to tx
-	sbi(PORTD, SEQ);
+	#ifdef PB2_SEQ													// wm
+		sbi(PORTB, SEQ);
+	#else
+		sbi(PORTD, SEQ);
+	#endif
+	
 	//wait a bit
 	_delay_ms(200);
 	// switch on tx
 	sbi(PORTC, TXON);
 }
+
 
 void switch_tx_off()
 {
@@ -252,73 +493,23 @@ void switch_tx_off()
 	cbi(PORTC, TXON);
 	// wait a bit
 	_delay_ms(200);
+
 	// switch coax relay to rx
-	cbi(PORTD,SEQ);
+	#ifdef PB2_SEQ													// wm
+		cbi(PORTB, SEQ);
+	#else
+		cbi(PORTD, SEQ);
+	#endif
 }
 
 
-int main()
+void Test1()
 {
-	// PORTB output for LCD
-	DDRB = 0xff;
-	PORTB = 0xff;
-
-#ifdef BOARD2
-	// PORTC PC0-4 output, PC5 input
-	DDRC = 0x1f;
-	PORTC = 0x00;
-	sbi(PORTC, MUTE);
-#endif
-#ifdef BOARD1
-	// PORTC PC0,2-5 output, PC1 input
-	DDRC = 0x3d;
-	PORTC = 0x00;
-	sbi(PORTC, MUTE);
-#endif
-
-	// PD0-PD6 input with pullup, PD7 output, low
-	DDRD = 0x80;
-	PORTD = 0x7f;
-
-	lcdInit();
-	adcInit();
-
-	readGlobalSettings();
-	toneCount = 5*F_CPU/tone;
-
-	initInterrupts();
-    initPLL();
-
-	sprintf(str, "PE1JPD 23cm v%s", version);
-	lcdCursor(0,0);
-	lcdStr(str);
-	_delay_ms(500);
-
-	for (;;) {
-		switch(mode) {
-			case VFO:
-				mode = Vfo();
-				writeGlobalSettings();
-				break;
-			case MEMORY:
-				mode = Memory();
-				writeGlobalSettings();
-				break;
-			case SPECTRUM:
-				mode = Spectrum();
-				break;
-			case MENU:
-				mode = Menu(mode);
-				break;
-			case MEMORY_MENU:
-				mode = MemoryMenu(mode);
-				break;
-			default:
-				mode = VFO;
-				break;
-		}
-	}
-}
+	tbi(PORTB, SEQ);
+	_delay_ms(5);
+	tbi(PORTB, SEQ);	
+}	
+	
 
 #ifdef ADF4113
 void initPLL()
@@ -344,6 +535,7 @@ void initPLL()
 	setPLL(reg);
 }
 
+
 void setFrequency(unsigned long f)
 {
 	long int reg, N, A, B;
@@ -356,6 +548,7 @@ void setFrequency(unsigned long f)
     setPLL(reg);				// set pll
 }
 #endif 
+
 
 #ifdef ADF4153
 void initPLL()
@@ -397,17 +590,19 @@ void initPLL()
 	setPLL(cntr);
 }
 
+
 void setFrequency(unsigned long f)
 {
 	long int reg, N, F;
 
-	N = f/2600;
-	F = f-2600*N;
+	N = (f+frqadj)/2600;											// wm
+	F = (f+frqadj)-2600*N;											// wm
 
     reg = (N<<14)+(F<<2);
     setPLL(reg);
 }
 #endif
+
 
 void setPLL(unsigned long r)
 {
@@ -430,4 +625,97 @@ void setPLL(unsigned long r)
     cbi(PORTC, LE);
 }
 
+
+
+//=============================================================================
+int main()
+{
+	// PORTB output for LCD
+	DDRB = 0xff;
+	
+	#ifdef PB2_SEQ													// wm
+		PORTB = 0xfb;												// PB2 for SEQ output low
+	#else
+		PORTB = 0xff;
+	#endif
+
+	#ifdef BOARD2
+	// PORTC PC0-4 output, PC5 input
+	DDRC = 0x1f;
+	PORTC = 0x00;
+	sbi(PORTC, MUTE);
+	#endif
+	
+	#ifdef BOARD1
+	// PORTC PC0,2-5 output, PC1 input
+	DDRC = 0x3d;
+	PORTC = 0x00;
+	sbi(PORTC, MUTE);
+	#endif
+
+	// PD0-PD6 input with pullup, PD7 output, low
+	// wm, PD7 not used '#ifdef PB2_SEQ' 
+	DDRD = 0x80;
+	PORTD = 0x7f;
+
+	lcdInit();
+	adcInit();
+
+	readGlobalSettings();
+	toneCount = 5*F_CPU/tone;										// CTCSS, tick
+
+	initInterrupts();
+	initPLL();
+
+	#ifdef LCD_20x4													// wm
+		sprintf(str, "PE1JPD 23cm-Trx v%s", version);	
+		lcdCursor(0,0);
+		lcdStr(str);
+		
+		lcdCursor(0,1);
+		lcdStr("   and improved by");
+		
+		lcdCursor(0,2);
+		lcdStr("        DG8WM");
+	#else
+		sprintf(str, "PE1JPD 23cm v%s", version);
+		lcdCursor(0,0);
+		lcdStr(str);
+
+		lcdCursor(0,1);
+		lcdStr("Improv. by DG8WM");
+	#endif
+	
+	_delay_ms(3000);												// wm 1000
+
+	#ifdef LCD_20x4
+		lcdCursor(0,2);
+		lcdStr("              ");
+	#endif
+
+	for (;;) {
+		switch(mode) {
+			case VFO:
+			mode = Vfo();
+			writeGlobalSettings();
+			break;
+			case MEMORY:
+			mode = Memory();
+			writeGlobalSettings();
+			break;
+			case SPECTRUM:
+			mode = Spectrum();
+			break;
+			case MENU:
+			mode = Menu(mode);
+			break;
+			case MEMORY_MENU:
+			mode = MemoryMenu(mode);
+			break;
+			default:
+			mode = VFO;
+			break;
+		}
+	}
+}
 
