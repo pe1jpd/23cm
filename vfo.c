@@ -1,6 +1,7 @@
 /*
  * loop when in VFO-mode 
  */
+
 #include <avr/io.h>
 #include <stdio.h>
 #include <avr/eeprom.h>
@@ -14,6 +15,11 @@ int rxtx();
 
 extern long int freq, lastFreq;
 extern int step, shift;
+
+#ifdef ADF4153														// wm
+extern int frqadj;
+#endif
+
 extern int squelchlevel;
 extern int tx;
 extern int tone;
@@ -22,7 +28,8 @@ extern int lastSelectedMemory;
 extern int tick;
 extern int tx;
 
-char str[16];
+char str[20];														// wm str[16];
+
 
 int Vfo() 
 {
@@ -40,6 +47,11 @@ int Vfo()
 	lcdClear();
 	lcdCursor(0,0);
 	lcdStr("VFO");
+	
+	#ifdef LCD_20x4
+		lcdCursor(13,0);											// wm
+		lcdStr("MHz");
+	#endif
 
 	for(;;) {
 
@@ -48,8 +60,8 @@ int Vfo()
 
 		// handle internal status of trx
 		rxtx();
-
-		// handle encoder 
+		
+		// handle encoder 	
 		int c = handleRotary();
 		if (c!=0) {
 			freq += c*step;
@@ -65,7 +77,6 @@ int Vfo()
 			freq += updn;
 			tick = 0;
 		}
-
 
 		// save new vfo frequency in eeprom after ~2 secs inactivity
 		if (tick > 200 && freq != savedFreq) {
@@ -103,6 +114,7 @@ int readUpDn()
 	return 0;
 }
 
+
 int Memory()
 {
 	createSmeterChars();
@@ -116,6 +128,11 @@ int Memory()
 	lcdCursor(0,0);
 	lcdChar('M');
 	lcdChar(0x30 + selectedMemory);
+
+	#ifdef LCD_20x4													// wm
+		lcdCursor(13,0);
+		lcdStr("MHz");
+	#endif
 
 	for(;;) {
 
@@ -144,6 +161,10 @@ int Memory()
 			// and load it
 			readMemory(selectedMemory);
 			tick=0;
+			
+			#ifdef LCD_20x4											// wm
+				displayParameter();
+			#endif
 		}
 
 		// save current memorychannel in eeprom after ~2 secs inactivity
@@ -168,21 +189,34 @@ int Memory()
 	return VFO;
 }
 
+
 void getSquelch()
 {
-	lcdCursor(9,1);
-	sprintf(str, "  %d", squelchlevel);
+	#ifdef LCD_20x4													// wm
+		lcdCursor(9,1);
+		sprintf(str, " %2d", squelchlevel);	
+	#else
+		lcdCursor(9,1);
+		sprintf(str, "  %d", squelchlevel);
+	#endif
+	
 	lcdStr(str);
 }
+
 
 int setSquelch()
 {
 	for (;;) {
 
-		lcdCursor(9,1);
-		sprintf(str, "> %d ", squelchlevel);
+		#ifdef LCD_20x4												// wm
+			lcdCursor(9,1);
+			sprintf(str, ">%2d ", squelchlevel);		
+		#else
+			lcdCursor(9,1);
+			sprintf(str, "> %d ", squelchlevel);
+		#endif	
+			
 		lcdStr(str);
-
 
 		for (;;) {
 			// handle encoder 
@@ -209,12 +243,20 @@ int setSquelch()
 	}
 }
 
+
 void getShift()
 {
-	lcdCursor(9,1);
-	sprintf(str, "  %-2d   ", shift);
+	#ifdef LCD_20x4													// wm
+		lcdCursor(7,1);
+		sprintf(str, "  %3d MHz", shift);
+	#else
+		lcdCursor(7,1);
+		sprintf(str, "  %3d MHz", shift);	
+	#endif
+	
 	lcdStr(str);
 }
+
 
 int setShift()
 {
@@ -222,8 +264,14 @@ int setShift()
 
 	for (;;) {
 
-		lcdCursor(9,1);
-		sprintf(str, "> %-2d   ", sh);
+		#ifdef LCD_20x4												// wm
+			lcdCursor(7,1);
+			sprintf(str, "> %3d MHz", sh);
+		#else
+			lcdCursor(7,1);
+			sprintf(str, "> %3d MHz", sh);		
+		#endif
+		
 		lcdStr(str);
 
 		for (;;) {
@@ -249,21 +297,34 @@ int setShift()
 	}
 }
 
+
 void getStep()
 {
-	sprintf(str, "  %d  ", step);
-	lcdCursor(9,1);
+	#ifdef LCD_20x4													// wm
+		sprintf(str, "  %4d KHz", step);
+		lcdCursor(6,1);
+	#else
+		sprintf(str, "  %4d KHz", step);							// wm
+		lcdCursor(6,1);	
+	#endif
+	
 	lcdStr(str);
 }
+
 
 int setStep()
 {
 	for (;;) {
 
-		sprintf(str, "> %d  ", step);
-		lcdCursor(9,1);
+		#ifdef LCD_20x4												// wm
+			sprintf(str, "> %4d KHz", step);
+			lcdCursor(6,1);
+		#else
+			sprintf(str, "> %4d KHz", step);						// wm
+			lcdCursor(6,1);		
+		#endif
+		
 		lcdStr(str);
-
 
 		for (;;) {
 			// handle encoder 
@@ -272,12 +333,14 @@ int setStep()
 				if (c>0) {
 					if (step==1) step=25;
 					else if (step==25) step=500;
+					else if (step==500) step=1000;					// wm
 					else step=1;
 				}
 				else {
-					if (step==500) step=25;
+					if (step==1000) step=500;						// wm
+					else if (step==500) step=25;
 					else if(step==25) step=1;
-					else step=500;
+					else step=1000;
 				}
 #ifdef ADF4113
 				if (step<25) step=25;
@@ -294,25 +357,66 @@ int setStep()
 	}
 }
 
+
 void getCTCSS()
 {
-	lcdCursor(9,1);
-	if (tone>=600)
-		sprintf(str, "  %d.%d", (int)(tone/10), (int)(tone%10));
+	#ifdef LCD_20x4													// wm
+		lcdCursor(6,1);
+	#else
+		lcdCursor(6,1);
+	#endif
+	
+	if (tone<599)													// wm
+		#ifdef LCD_20x4												// wm
+			sprintf(str, "   off   ");
+		#else
+			sprintf(str, "  off  ");
+		#endif
+	else if (tone==599)												// wm
+		#ifdef LCD_20x4
+			sprintf(str, "  1750 Hz");
+		#else
+			sprintf(str, " 1750 Hz");
+		#endif	
 	else
-		sprintf(str, "  off  ");
+		#ifdef LCD_20x4												// wm
+			sprintf(str, "  %3d.%1d Hz", (int)(tone/10), (int)(tone%10));
+		#else
+			sprintf(str, "  %3d.%1d Hz", (int)(tone/10), (int)(tone%10));
+		#endif
+			
 	lcdStr(str);
 }
+
 
 int setCTCSS()
 {
 	for (;;) {
 
-		lcdCursor(9,1);
-		if (tone<600)
-			sprintf(str, "> off  ");
+		#ifdef LCD_20x4	
+			lcdCursor(6,1);
+		#else
+			lcdCursor(6,1);
+		#endif
+		
+		if (tone<599)												// wm, 600
+			#ifdef LCD_20x4											// wm
+				sprintf(str, ">  off   ");
+			#else
+				sprintf(str, ">  off   ");
+			#endif
+		else if (tone==599)											// wm
+			#ifdef LCD_20x4
+				sprintf(str, "> 1750 Hz ");
+			#else
+				sprintf(str, "> 1750 Hz ");
+			#endif
 		else
-			sprintf(str, "> %d.%d ", (int)(tone/10), (int)(tone%10));
+			#ifdef LCD_20x4											// wm
+				sprintf(str, "> %3d.%1d Hz", (int)(tone/10), (int)(tone%10));
+			#else
+				sprintf(str, "> %3d.%1d Hz", (int)(tone/10), (int)(tone%10));
+			#endif
 		lcdStr(str);
 
 		for (;;) {
@@ -323,7 +427,7 @@ int setCTCSS()
 					if (++tone>1500) tone=1500;
 				}
 				else {
-					if (--tone<599) tone=599;
+					if (--tone<598) tone=598;						// wm, 599
 				}
 				break;
 			}
@@ -335,6 +439,7 @@ int setCTCSS()
 		}
 	}
 }
+
 
 void getMemory()
 {
@@ -377,6 +482,56 @@ int setMemory(int set)
 		}
 	}
 }
+
+
+void getAdjustfreq()												// wm
+{
+	lcdCursor(7,1);
+	sprintf(str, " %4d KHz", frqadj);
+	lcdStr(str);	
+}
+	
+	
+int setAdjustfreq()													// wm
+{
+	int fa = frqadj;												// frqadj in KHz
+
+	for (;;) {
+
+		lcdCursor(7,1);
+		
+//		if (fa < 0)
+			sprintf(str, ">%4d KHz", fa);
+//		else
+//			sprintf(str, "> %3d KHz", fa);
+
+		lcdStr(str);
+
+		for (;;) {
+			// handle encoder
+			int c = handleRotary();
+			if (c!=0) {
+				if (c>0) {
+					if (++fa>200) fa = 200;
+				}
+				else {
+					if (--fa<-200) fa = -200;
+				}
+				break;
+			}
+
+			int push = getRotaryPush();
+			if (push) {
+				if (frqadj != fa) {
+					frqadj = fa;
+					writeGlobalSettings();
+				}
+				return push;
+			}
+		}
+	}	
+}
+
 
 void scanMemory()
 {
@@ -425,6 +580,8 @@ struct MenuStruct {
 	int (* set)();
 };
 
+
+#ifdef ADF4113														// wm
 #define MAXMENU 4
 struct MenuStruct mainMenu[] = {
     { "Squelch ", &getSquelch, &setSquelch},
@@ -434,14 +591,31 @@ struct MenuStruct mainMenu[] = {
 	{ "Store   ", &getMemory, &setMemory},
 //	{ "Spectrum scan ", 0, &Spectrum},
 };
+#endif
+
+
+#ifdef ADF4153														// wm
+#define MAXMENU 5
+struct MenuStruct mainMenu[] = {
+	{ "Squelch ", &getSquelch, &setSquelch},
+	{ "Step    ", &getStep, &setStep},
+	{ "Shift   ", &getShift, &setShift},
+	{ "CTCSS   ", &getCTCSS, &setCTCSS},
+	{ "Store   ", &getMemory, &setMemory},
+	{ "FrqAdj  ", &getAdjustfreq, &setAdjustfreq},
+	//	{ "Spectrum scan ", 0, &Spectrum},
+};
+#endif
+
 
 #define MAXMEMMENU 3
 struct MenuStruct memoryMenu[] = {
-    { "Squelch ", &getSquelch, &setSquelch},
-    { "Shift   ", &getShift, &setShift},
-    { "CTCSS   ", &getCTCSS, &setCTCSS},
-    { "Memory scan   ", NULL, &scanMemory},
+	{ "Squelch ", &getSquelch, &setSquelch},
+	{ "Shift   ", &getShift, &setShift},
+	{ "CTCSS   ", &getCTCSS, &setCTCSS},
+	{ "Memory scan   ", (void *)0, &scanMemory},
 };
+
 
 int Menu()
 {
@@ -451,7 +625,13 @@ int Menu()
 	for (;;) {
 
 		lcdCursor(0,1);
-		lcdStr("                ");
+		
+		#ifdef LCD_20x4												// wm
+			lcdStr("                    ");
+		#else
+			lcdStr("                ");
+		#endif
+		
 		lcdCursor(0,1);
 		lcdStr(menu[i].name);
 
@@ -496,6 +676,7 @@ int Menu()
 	return VFO;
 }
 
+
 int MemoryMenu()
 {
 	struct MenuStruct *menu = memoryMenu;
@@ -504,7 +685,13 @@ int MemoryMenu()
 
 	for (;;) {	
 		lcdCursor(0,1);
-		lcdStr("                ");
+		
+		#ifdef LCD_20x4												// wm
+			lcdStr("                    ");
+		#else
+			lcdStr("                ");
+		#endif
+		
 		lcdCursor(0,1);
 		lcdStr(menu[i].name);
 		if (menu[i].get) menu[i].get();
