@@ -32,14 +32,15 @@
  * 4.4  Change SEQ from PD7 to PB2							17-08-20	wm
  * 4.4	1750 Hz Tone PD7									17-08-20	wm
  * 4.4	Double click PTT for 1750 Hz tone					20-08-20	wm
+ * 4.5	Start in VFO or MEMORY Mode							25-08-20	wm
  */
 
 
 /*
  *
- *		'#define LCD_20x4' delete this for 2-line LCD in 23nbfm.h		wm
- *		'#define PB2_SEQ' for use PB2 and not PD7 for SEQ				wm
- *		'#define TONE_1750' and '#define PB2_SEQ' 1750 Hz on PD7 		wm
+ *		'#define LCD_20x4' delete this for 2-line LCD in 23nbfm.h						wm
+ *		'#define PB2_SEQ' for use PB2 and not PD7 for SEQ, PD7 is used for 1750 Hz		wm
+ *		'#define TONE_1750' and '#define PB2_SEQ' 1750 Hz on PD7 						wm
  *
  */
 
@@ -318,7 +319,7 @@ int TX_ok()												// wm
 	int s = 0;
 	
 	#ifdef LCD_20x4										// wm Clear RSSI
-	displayRSSI(s);
+		displayRSSI(s);
 	#endif
 	
 	displaySmeter(s);									// Clear S-Meter
@@ -503,7 +504,7 @@ void switch_tx_off()
 }
 
 
-void Test1()
+void Test1()														// wm, normaly not used
 {
 	tbi(PORTB, SEQ);
 	_delay_ms(5);
@@ -654,7 +655,7 @@ int main()
 	#endif
 
 	// PD0-PD6 input with pullup, PD7 output, low
-	// wm, PD7 not used '#ifdef PB2_SEQ' 
+	// wm, PD7 used for 1750 Hz tone --> '#define PB2_SEQ' and '#define TONE_1750' 
 	DDRD = 0x80;
 	PORTD = 0x7f;
 
@@ -662,6 +663,12 @@ int main()
 	adcInit();
 
 	readGlobalSettings();
+	
+	if ((mode != VFO) && (mode != MEMORY))							// wm
+	{
+		mode = VFO;
+	}
+	
 	toneCount = 5*F_CPU/tone;										// CTCSS, tick
 
 	initInterrupts();
