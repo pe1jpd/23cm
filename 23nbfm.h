@@ -5,7 +5,7 @@
 
 #define BOARD2
 #define ADF4153
-#define version		"4.4"		// wm
+#define version		"4.5"		// wm
 #define LCD_20x4				// wm
 #define DECODER					// wm
 #define RSSIoff		40			// wm, RSSI-Offset, Bas 44 
