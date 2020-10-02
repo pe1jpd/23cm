@@ -1,9 +1,18 @@
 /*
- * 23cm JPD transceiver
- * 
- * #	change												date		by
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: main.c
+*	Last change: 02.10.20
+*
+*	Description: main loop
+*/
+
+
+/* 
+ * #	changes												date		by
  * ---------------------------------------------------------------------------
- * 1.0	Initial version										01-01-15	pe1jpd
+ * 1.0  Initial version										01-01-15	pe1jpd
  * 1.5	Software squelch									26-05-15	pe1jpd
  * 2.0	PORTC change										01-07-15	pe1jpd
  * 2.1	PORTC bug solved									19-08-15	pe1jpd
@@ -33,6 +42,7 @@
  * 4.4	1750 Hz Tone PD7									17-08-20	wm
  * 4.4	Double click PTT for 1750 Hz tone					20-08-20	wm
  * 4.5	Start Trx only in VFO or MEMORY Mode				25-08-20	wm
+ * 4.51	Some cosmetics, new Headers...						02-10-20	wm
  */
 
 
