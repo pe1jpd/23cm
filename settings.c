@@ -1,7 +1,13 @@
 /*
- * All code to store and load settings to EEPROM.
- *
- */
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: settings.c
+*	Last change: 02.10.20
+*
+*	Description: All code to store and load settings to EEPROM.
+*/
+
 
 #include <avr/io.h>
 #include <stdio.h>
