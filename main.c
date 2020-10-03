@@ -3,7 +3,7 @@
 *	Developer: Bas, PE1JPD
 *
 *	Module: main.c
-*	Last change: 02.10.20
+*	Last change: 03.10.20
 *
 *	Description: main loop
 */
@@ -43,6 +43,7 @@
  * 4.4	Double click PTT for 1750 Hz tone					20-08-20	wm
  * 4.5	Start Trx only in VFO or MEMORY Mode				25-08-20	wm
  * 4.51	Some cosmetics, new Headers...						02-10-20	wm
+ * 4.52	New version numbering								03-10-20	wm
  */
 
 
@@ -685,25 +686,33 @@ int main()
 	initPLL();
 
 	#ifdef LCD_20x4													// wm
-		sprintf(str, "PE1JPD 23cm-Trx v%s", version);	
-		lcdCursor(0,0);
-		lcdStr(str);
-		
-		lcdCursor(0,1);
-		lcdStr("   and improved by");
-		
-		lcdCursor(0,2);
-		lcdStr("        DG8WM");
-	#else
-		sprintf(str, "PE1JPD 23cm v%s", version);
+		sprintf(str, "23cm-NBFM-Trx  v%s", version);	
 		lcdCursor(0,0);
 		lcdStr(str);
 
 		lcdCursor(0,1);
+		lcdStr("      by PE1JPD     ");
+		_delay_ms(2000);
+		
+		lcdCursor(0,1);
+		lcdStr("  and improved by ");
+		
+		lcdCursor(0,2);
+		lcdStr("       DG8WM      ");
+	#else
+		sprintf(str, "23cm-Trx   v%s", version);					// wm
+		lcdCursor(0,0);
+		lcdStr(str);
+
+		lcdCursor(0,1);												// wm
+		lcdStr("   by PE1JPD    ");
+		_delay_ms(2000);
+		
+		lcdCursor(0,1);
 		lcdStr("Improv. by DG8WM");
 	#endif
 	
-	_delay_ms(3000);												// wm 1000
+	_delay_ms(2000);												// wm 1000
 
 	#ifdef LCD_20x4
 		lcdCursor(0,2);
