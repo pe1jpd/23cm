@@ -1,9 +1,18 @@
 /*
- * 23cm JPD transceiver
- * 
- * #	change												date		by
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: main.c
+*	Last change: 03.10.20
+*
+*	Description: main loop
+*/
+
+
+/* 
+ * #	changes												date		by
  * ---------------------------------------------------------------------------
- * 1.0	Initial version										01-01-15	pe1jpd
+ * 1.0  Initial version										01-01-15	pe1jpd
  * 1.5	Software squelch									26-05-15	pe1jpd
  * 2.0	PORTC change										01-07-15	pe1jpd
  * 2.1	PORTC bug solved									19-08-15	pe1jpd
@@ -32,7 +41,9 @@
  * 4.4  Change SEQ from PD7 to PB2							17-08-20	wm
  * 4.4	1750 Hz Tone PD7									17-08-20	wm
  * 4.4	Double click PTT for 1750 Hz tone					20-08-20	wm
- * 4.5	Start in VFO or MEMORY Mode							25-08-20	wm
+ * 4.5	Start Trx only in VFO or MEMORY Mode				25-08-20	wm
+ * 4.51	Some cosmetics, new Headers...						02-10-20	wm
+ * 4.52	New version numbering								03-10-20	wm
  */
 
 
@@ -83,17 +94,17 @@ long toneCount;														// var for Timer1
 #endif
 
 #ifdef DECODER														// wm
-	// Dekodertabelle für wackeligen Rastpunkt
+	// Dekodertabelle fÃ¼r wackeligen Rastpunkt
 	// Quelle: https://www.mikrocontroller.net/articles/Drehgeber
 	
-	// viertel Auflösung											// wm
+	// viertel AuflÃ¶sung											// wm
 	const int8_t table[16] PROGMEM = {0,0,-1,0,0,0,0,1,0,0,0,0,0,0,0,0};
 
-	// halbe Auflösung
+	// halbe AuflÃ¶sung
 	// const int8_t table[16] PROGMEM = {0,0,-1,0,0,0,0,1,1,0,0,0,0,-1,0,0};
 		
-	// Dekodertabelle für normale Drehgeber
-	// volle Auflösung
+	// Dekodertabelle fÃ¼r normale Drehgeber
+	// volle AuflÃ¶sung
 	// const int8_t table[16] PROGMEM = {0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};
 
 	ISR( TIMER0_COMPA_vect )										// 1ms fuer manuelle Eingabe
@@ -675,25 +686,33 @@ int main()
 	initPLL();
 
 	#ifdef LCD_20x4													// wm
-		sprintf(str, "PE1JPD 23cm-Trx v%s", version);	
-		lcdCursor(0,0);
-		lcdStr(str);
-		
-		lcdCursor(0,1);
-		lcdStr("   and improved by");
-		
-		lcdCursor(0,2);
-		lcdStr("        DG8WM");
-	#else
-		sprintf(str, "PE1JPD 23cm v%s", version);
+		sprintf(str, "23cm-NBFM-Trx  v%s", version);	
 		lcdCursor(0,0);
 		lcdStr(str);
 
 		lcdCursor(0,1);
+		lcdStr("      by PE1JPD     ");
+		_delay_ms(2000);
+		
+		lcdCursor(0,1);
+		lcdStr("  and improved by ");
+		
+		lcdCursor(0,2);
+		lcdStr("       DG8WM      ");
+	#else
+		sprintf(str, "23cm-Trx   v%s", version);					// wm
+		lcdCursor(0,0);
+		lcdStr(str);
+
+		lcdCursor(0,1);												// wm
+		lcdStr("   by PE1JPD    ");
+		_delay_ms(2000);
+		
+		lcdCursor(0,1);
 		lcdStr("Improv. by DG8WM");
 	#endif
 	
-	_delay_ms(3000);												// wm 1000
+	_delay_ms(2000);												// wm 1000
 
 	#ifdef LCD_20x4
 		lcdCursor(0,2);

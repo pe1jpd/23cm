@@ -1,11 +1,20 @@
-// ATMEGA328 with default, factory fuse settings
+/*
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: 23nbfm.h
+*	Last change: 02.10.20
+*
+*	Description: Defines..., ATMEGA328 with default, factory fuse settings
+*/
+ 
 
 #define F_CPU 		1000000UL
 #define XTAL		1e6			// wm 1MHz 
 
 #define BOARD2
 #define ADF4153
-#define version		"4.4"		// wm
+#define version		"4.5"		// wm
 #define LCD_20x4				// wm
 #define DECODER					// wm
 #define RSSIoff		40			// wm, RSSI-Offset, Bas 44 
