@@ -52,6 +52,7 @@ The first thing what I have done was to implement an LCD with 4 x 20 characters 
  * 4.4	Double click PTT for 1750 Hz tone					        20-08-20	wm
  * 4.5 Start Trx only in VFO or MEMORY Mode    25-08-20 wm
  * 4.51	Some cosmetics, new Headers...						02-10-20	wm
+ * 4.52	New version numbering								03-10-20	wm 
  
  '#define LCD_20x4' delete this for 2-line LCD in 23nbfm.h
  '#define PB2_SEQ' for use PB2 and not PD7 for SEQ, PD7 is used for 1750 Hz
