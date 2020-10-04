@@ -7,9 +7,7 @@ Remarks:
 
 
 
-There are two different versions:
-- '2z' for LCD with 2x16 characters
-- '4z' for LCD with 4x20 characters
+There are two different versions '2z' for LCD 2x16 characters and '4z' LCD 4x20 characters.
 
 wm_23Trx_<software version>__<LCD type>.hex
 

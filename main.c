@@ -94,17 +94,17 @@ long toneCount;														// var for Timer1
 #endif
 
 #ifdef DECODER														// wm
-	// Dekodertabelle für wackeligen Rastpunkt
+	// Dekodertabelle fÃ¼r wackeligen Rastpunkt
 	// Quelle: https://www.mikrocontroller.net/articles/Drehgeber
 	
-	// viertel Auflösung											// wm
+	// viertel AuflÃ¶sung											// wm
 	const int8_t table[16] PROGMEM = {0,0,-1,0,0,0,0,1,0,0,0,0,0,0,0,0};
 
-	// halbe Auflösung
+	// halbe AuflÃ¶sung
 	// const int8_t table[16] PROGMEM = {0,0,-1,0,0,0,0,1,1,0,0,0,0,-1,0,0};
 		
-	// Dekodertabelle für normale Drehgeber
-	// volle Auflösung
+	// Dekodertabelle fÃ¼r normale Drehgeber
+	// volle AuflÃ¶sung
 	// const int8_t table[16] PROGMEM = {0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0};
 
 	ISR( TIMER0_COMPA_vect )										// 1ms fuer manuelle Eingabe

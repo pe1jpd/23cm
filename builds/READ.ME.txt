@@ -1,8 +1,0 @@
-In this directory the most common builds can be found, ready to program as hex-file 
-in an ATMEGA328p with factory fuse settings. 
-
-23nbfm<software version>__<board version>_<pll type>_<f reference>.hex
-board version is 1 for 1.x, and 2 for 2.x and up.
-
-for example:
-23nbfm41_1_4153_13MHz.hex: board version 1.x, PLL ADF4153 with 13MHz reference frequency.
