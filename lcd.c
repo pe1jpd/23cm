@@ -1,3 +1,14 @@
+/*
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: lcd.c
+*	Last change: 02.10.20
+*
+*	Description: Initialization of the LCD and Output
+*/
+
+
 #include <avr/io.h>
 #include <stdio.h>
 #include <avr/eeprom.h>

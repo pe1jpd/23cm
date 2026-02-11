@@ -1,6 +1,13 @@
 /*
- * loop when in VFO-mode 
- */
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: vfo.c
+*	Last change: 02.10.20
+*
+*	Description: loop when in VFO-mode
+*/
+
 
 #include <avr/io.h>
 #include <stdio.h>

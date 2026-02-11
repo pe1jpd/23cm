@@ -1,6 +1,13 @@
 /*
- * Spectrum scanner/analyzer
- */
+*	Project: 23cm-NBFM-Transceiver
+*	Developer: Bas, PE1JPD
+*
+*	Module: spectrum.c
+*	Last change: 02.10.20
+*
+*	Description: Spectrum scanner/analyzer, currently not used
+*/
+
 
 #include <avr/io.h>
 #include <stdio.h>
