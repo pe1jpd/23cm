@@ -4,9 +4,9 @@
 #define XTAL		1e6			// wm 1MHz 
 
 #define BOARD2
-#define ADF4153
+#define ADF4113
 #define version		"4.4"		// wm
-#define LCD_20x4				// wm
+#define LCD_20x2				// wm
 #define DECODER					// wm
 #define RSSIoff		40			// wm, RSSI-Offset, Bas 44 
 #define PB2_SEQ					// wm Sequencer on PB2
